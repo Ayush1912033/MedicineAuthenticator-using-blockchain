@@ -1,17 +1,33 @@
-import { connectWallet } from "../utils/connectWallet";
+type NavbarProps = {
+  account: string;
+  isOwner: boolean;
+  status: string;
+  onConnect: () => void | Promise<void>;
+};
 
-const Navbar = () => {
-  const handleConnect = async () => {
-    const account = await connectWallet();
-    if (account) {
-      alert(`Connected: ${account}`);
-    }
-  };
-
+const Navbar = ({ account, isOwner, status, onConnect }: NavbarProps) => {
   return (
-    <nav style={{ padding: "10px", background: "#222", color: "#fff" }}>
-      <h2>Medicine Auth</h2>
-      <button onClick={handleConnect}>Connect Wallet</button>
+    <nav className="topbar">
+      <div className="brand-block">
+        <div className="brand-mark">MS</div>
+        <div>
+          <h2>MedSecure</h2>
+        </div>
+      </div>
+
+      <div className="topbar-actions">
+        <div className="wallet-chip compact-chip">
+          <span className={`status-dot ${account ? "online" : ""}`} />
+          <div>
+            <strong>{account ? `${account.slice(0, 6)}...${account.slice(-4)}` : status}</strong>
+            <small>{isOwner ? "Admin" : "User"}</small>
+          </div>
+        </div>
+
+        <button type="button" className="primary-button" onClick={() => void onConnect()}>
+          {account ? "Reconnect" : "Connect"}
+        </button>
+      </div>
     </nav>
   );
 };

@@ -56,99 +56,124 @@ const AdminPanel = () => {
       }
 
       setRequests(data);
-    } catch (err) {
-      console.error(err);
+    } catch (error) {
+      console.error(error);
     } finally {
       setLoading(false);
     }
   };
 
-  const approve = async (addr: string) => {
+  const approve = async (address: string) => {
     const contract = await getContract();
     if (!contract) return;
 
     try {
-      setActionAddress(addr);
-      const tx = await contract.approveManufacturer(addr);
+      setActionAddress(address);
+      const tx = await contract.approveManufacturer(address);
       await tx.wait();
-      alert("Approved successfully");
       await loadRequests();
-    } catch (err) {
-      console.error(err);
-      alert("Approval failed");
+    } catch (error) {
+      console.error(error);
     } finally {
       setActionAddress(null);
     }
   };
 
-  const reject = async (addr: string) => {
+  const reject = async (address: string) => {
     const contract = await getContract();
     if (!contract) return;
 
     try {
-      setActionAddress(addr);
-      const tx = await contract.rejectManufacturer(addr);
+      setActionAddress(address);
+      const tx = await contract.rejectManufacturer(address);
       await tx.wait();
-      alert("Rejected successfully");
       await loadRequests();
-    } catch (err) {
-      console.error(err);
-      alert("Reject failed");
+    } catch (error) {
+      console.error(error);
     } finally {
       setActionAddress(null);
     }
   };
 
-  if (!isOwner && !loading) return null;
+  if (!isOwner && !loading) {
+    return (
+      <section className="feature-card info-card">
+        <div className="card-heading">
+          <div>
+            <p className="section-kicker">Admin access</p>
+            <h3>Owner wallet required</h3>
+          </div>
+        </div>
+        <p className="muted-text">
+          Connect with the contract owner wallet to review pending manufacturer requests.
+        </p>
+      </section>
+    );
+  }
 
   return (
-    <div style={{ padding: "20px", margin: "20px", border: "1px solid gray" }}>
-      <h2>Admin Panel</h2>
+    <section className="feature-card full-width-card">
+      <div className="card-heading">
+        <div>
+          <p className="section-kicker">Governance queue</p>
+          <h3>Manufacturer approval requests</h3>
+        </div>
+        <span className="inline-badge">{loading ? "Syncing" : `${requests.length} requests`}</span>
+      </div>
 
-      {loading && <p>Loading requests...</p>}
-      {!loading && requests.length === 0 && <p>No pending requests found</p>}
+      {loading && <p className="status-banner neutral">Loading requests...</p>}
+      {!loading && requests.length === 0 && (
+        <div className="empty-state compact">
+          <div className="empty-orb" />
+          <p>No pending requests found.</p>
+        </div>
+      )}
 
-      {requests.map((req) => {
-        const disabled = actionAddress === req.address;
+      <div className="request-list">
+        {requests.map((request) => {
+          const disabled = actionAddress === request.address;
 
-        return (
-          <div key={req.address} style={{ marginBottom: "10px" }}>
-            <p>
-              <strong>Address:</strong> {req.address}
-            </p>
-            <p>
-              <strong>Company:</strong> {req.name}
-            </p>
-            <p>
-              <strong>Status:</strong>{" "}
-              {req.approved ? (
-                <span style={{ color: "green" }}>Approved</span>
-              ) : (
-                <span style={{ color: "orange" }}>Pending</span>
-              )}
-            </p>
-
-            {!req.approved && (
-              <>
-                <button onClick={() => approve(req.address)} disabled={disabled}>
-                  {disabled ? "Working..." : "Approve"}
-                </button>
-
-                <button
-                  onClick={() => reject(req.address)}
-                  disabled={disabled}
-                  style={{ marginLeft: "10px", background: "red", color: "white" }}
-                >
-                  {disabled ? "Working..." : "Reject"}
-                </button>
-              </>
-            )}
-
-            <hr />
-          </div>
-        );
-      })}
-    </div>
+          return (
+            <article key={request.address} className="request-card">
+              <div>
+                <span className="request-label">Wallet Address</span>
+                <strong>{request.address}</strong>
+              </div>
+              <div>
+                <span className="request-label">Company</span>
+                <strong>{request.name}</strong>
+              </div>
+              <div>
+                <span className="request-label">Status</span>
+                <strong>{request.approved ? "Approved" : "Pending review"}</strong>
+              </div>
+              <div className="request-actions">
+                {!request.approved && (
+                  <>
+                    <button
+                      type="button"
+                      className="secondary-button"
+                      onClick={() => void approve(request.address)}
+                      disabled={disabled}
+                    >
+                      {disabled ? "Working..." : "Approve"}
+                    </button>
+                    <button
+                      type="button"
+                      className="danger-button"
+                      onClick={() => void reject(request.address)}
+                      disabled={disabled}
+                    >
+                      {disabled ? "Working..." : "Reject"}
+                    </button>
+                  </>
+                )}
+              </div>
+            </article>
+          );
+        })}
+      </div>
+    </section>
   );
 };
 

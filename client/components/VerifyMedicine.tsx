@@ -16,6 +16,7 @@ type CameraDevice = {
   deviceId: string;
   label: string;
 };
+type ScanTab = "manual" | "camera" | "upload";
 
 const scannerElementId = "medicine-qr-reader";
 
@@ -28,6 +29,7 @@ const VerifyMedicine = () => {
   const [cameras, setCameras] = useState<CameraDevice[]>([]);
   const [selectedCameraId, setSelectedCameraId] = useState("");
   const [activeCameraLabel, setActiveCameraLabel] = useState("");
+  const [activeTab, setActiveTab] = useState<ScanTab>("manual");
   const scannerRef = useRef<Html5Qrcode | null>(null);
 
   const loadCameras = useCallback(async () => {
@@ -73,7 +75,7 @@ const VerifyMedicine = () => {
 
   const verifyMedicineById = async (medicineId: string) => {
     if (!medicineId.trim()) {
-      alert("Please enter a medicine ID");
+      setScanMessage("Enter or scan a medicine ID to start verification.");
       return;
     }
 
@@ -93,6 +95,7 @@ const VerifyMedicine = () => {
         mfgDate: data[3],
         expiry: data[4],
       });
+      setScanMessage("Authentic medicine record found on-chain.");
     } catch (error: unknown) {
       console.error(error);
 
@@ -104,8 +107,10 @@ const VerifyMedicine = () => {
         error.reason.includes("Medicine not found")
       ) {
         setResult("notfound");
+        setScanMessage("No blockchain record matched that medicine ID.");
       } else {
         setResult("error");
+        setScanMessage("Verification could not be completed right now.");
       }
     } finally {
       setLoading(false);
@@ -257,86 +262,198 @@ const VerifyMedicine = () => {
   }, [loadCameras, stopScanner]);
 
   return (
-    <div style={{ padding: "20px" }}>
-      <h2>Verify Medicine</h2>
+    <div className="workspace-grid verify-layout">
+      <section className="feature-card accent-card">
+        <div className="card-heading">
+          <div>
+            <p className="section-kicker">Verification studio</p>
+            <h3>Confirm medicine authenticity in seconds</h3>
+          </div>
+          <span className="inline-badge">{loading ? "Checking" : "Ready"}</span>
+        </div>
 
-      <input
-        placeholder="Enter Medicine ID"
-        value={id}
-        onChange={(e) => setId(e.target.value)}
-      />
+        <p className="muted-text">Pick a method and verify.</p>
 
-      <button onClick={verify} disabled={loading}>
-        {loading ? "Checking..." : "Verify"}
-      </button>
+        <div className="tab-row">
+          <button
+            type="button"
+            className={`tab-button ${activeTab === "manual" ? "active" : ""}`}
+            onClick={() => {
+              setActiveTab("manual");
+              void stopScanner();
+            }}
+          >
+            Manual ID
+          </button>
+          <button
+            type="button"
+            className={`tab-button ${activeTab === "camera" ? "active" : ""}`}
+            onClick={() => setActiveTab("camera")}
+          >
+            Camera Scan
+          </button>
+          <button
+            type="button"
+            className={`tab-button ${activeTab === "upload" ? "active" : ""}`}
+            onClick={() => {
+              setActiveTab("upload");
+              void stopScanner();
+            }}
+          >
+            Upload Image
+          </button>
+        </div>
 
-      <div style={{ marginTop: "12px" }}>
-        {cameras.length > 0 && (
-          <div style={{ marginBottom: "10px" }}>
-            <label>
-              Camera:
-              <select
-                value={selectedCameraId}
-                onChange={(e) => setSelectedCameraId(e.target.value)}
-                style={{ marginLeft: "10px" }}
-              >
-                {cameras.map((camera) => (
-                  <option key={camera.deviceId} value={camera.deviceId}>
-                    {camera.label}
-                  </option>
-                ))}
-              </select>
+        <div className="input-panel">
+          <label className="field-label" htmlFor="medicine-id">
+            Medicine ID
+          </label>
+          <div className="input-action-row">
+            <input
+              id="medicine-id"
+              className="app-input"
+              placeholder="Enter or scan a medicine batch ID"
+              value={id}
+              onChange={(event) => setId(event.target.value)}
+            />
+            <button
+              type="button"
+              className="primary-button"
+              onClick={() => void verify()}
+              disabled={loading}
+            >
+              {loading ? "Checking..." : "Verify"}
+            </button>
+          </div>
+        </div>
+
+        {activeTab === "camera" && (
+          <div className="protocol-panel">
+            <div className="protocol-header">
+              <div>
+                <h4>Camera verification</h4>
+                <p>Scan a QR code live.</p>
+              </div>
+              <div className="protocol-actions">
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={() => void startScanner()}
+                  disabled={scanMode || loading}
+                >
+                  {scanMode ? "Scanner Active" : "Start Scanner"}
+                </button>
+                {scanMode && (
+                  <button type="button" className="ghost-button" onClick={() => void stopScanner()}>
+                    Stop
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {cameras.length > 0 && (
+              <label className="field-label" htmlFor="camera-select">
+                Camera Source
+                <select
+                  id="camera-select"
+                  className="app-select"
+                  value={selectedCameraId}
+                  onChange={(event) => setSelectedCameraId(event.target.value)}
+                >
+                  {cameras.map((camera) => (
+                    <option key={camera.deviceId} value={camera.deviceId}>
+                      {camera.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+
+            <div className={`scanner-shell ${scanMode ? "active" : ""}`}>
+              <div id={scannerElementId} className="scanner-view" />
+              {!scanMode && (
+                <p className="scanner-placeholder">Activate the scanner to begin live verification.</p>
+              )}
+            </div>
+
+            {activeCameraLabel && <p className="helper-text">Using camera: {activeCameraLabel}</p>}
+          </div>
+        )}
+
+        {activeTab === "upload" && (
+          <div className="protocol-panel">
+            <div className="protocol-header">
+              <div>
+                <h4>Image upload analysis</h4>
+                <p>Upload a QR image.</p>
+              </div>
+            </div>
+            <label className="upload-card" htmlFor="qr-upload">
+              <span className="upload-illustration" />
+              <strong>Add QR image</strong>
+              <small>PNG, JPG, or camera screenshot</small>
+              <input id="qr-upload" type="file" accept="image/*" onChange={handleImageScan} />
             </label>
           </div>
         )}
 
-        <button onClick={startScanner} disabled={scanMode || loading}>
-          {scanMode ? "Scanner Active" : "Scan QR with Camera"}
-        </button>
-        {scanMode && (
-          <button onClick={() => void stopScanner()} style={{ marginLeft: "10px" }}>
-            Stop Scanner
-          </button>
-        )}
-      </div>
+        {scanMessage && <p className="status-banner neutral">{scanMessage}</p>}
+      </section>
 
-      <div style={{ marginTop: "12px" }}>
-        <label>
-          Upload QR image:
-          <input type="file" accept="image/*" onChange={handleImageScan} />
-        </label>
-      </div>
-
-      <div style={{ marginTop: "16px", display: scanMode ? "block" : "none" }}>
-        <div id={scannerElementId} style={{ maxWidth: "360px" }} />
-        {activeCameraLabel && <p style={{ marginTop: "8px" }}>Using camera: {activeCameraLabel}</p>}
-      </div>
-
-      {scanMessage && <p style={{ marginTop: "10px" }}>{scanMessage}</p>}
-
-      {result && typeof result === "object" && (
-        <div style={{ marginTop: "20px" }}>
-          <h3 style={{ color: "green" }}>Authentic Medicine</h3>
-          <p>
-            <strong>ID:</strong> {result.id}
-          </p>
-          <p>
-            <strong>Name:</strong> {result.name}
-          </p>
-          <p>
-            <strong>Manufacturer:</strong> {result.manufacturer}
-          </p>
-          <p>
-            <strong>MFG Date:</strong> {result.mfgDate}
-          </p>
-          <p>
-            <strong>Expiry:</strong> {result.expiry}
-          </p>
+      <section className="feature-card result-card">
+        <div className="card-heading">
+          <div>
+            <p className="section-kicker">Result panel</p>
+            <h3>Medicine trust snapshot</h3>
+          </div>
         </div>
-      )}
 
-      {result === "notfound" && <p style={{ color: "orange" }}>Medicine not found</p>}
-      {result === "error" && <p style={{ color: "red" }}>Something went wrong</p>}
+        {!result && (
+          <div className="empty-state">
+            <div className="empty-orb" />
+            <p>Scan or enter an ID.</p>
+          </div>
+        )}
+
+        {result && typeof result === "object" && (
+          <div className="verification-success">
+            <span className="result-chip success">Authentic</span>
+            <h4>{result.name}</h4>
+            <div className="result-grid">
+              <article>
+                <span>ID</span>
+                <strong>{result.id}</strong>
+              </article>
+              <article>
+                <span>Manufacturer</span>
+                <strong>{result.manufacturer}</strong>
+              </article>
+              <article>
+                <span>MFG Date</span>
+                <strong>{result.mfgDate}</strong>
+              </article>
+              <article>
+                <span>Expiry</span>
+                <strong>{result.expiry}</strong>
+              </article>
+            </div>
+          </div>
+        )}
+
+        {result === "notfound" && (
+          <div className="status-panel warning">
+            <span className="result-chip warning">Record not found</span>
+            <p>This medicine ID is not currently registered on-chain.</p>
+          </div>
+        )}
+
+        {result === "error" && (
+          <div className="status-panel danger">
+            <span className="result-chip danger">Verification error</span>
+            <p>The verification request failed. Check wallet access and network status, then retry.</p>
+          </div>
+        )}
+      </section>
     </div>
   );
 };
